@@ -12,10 +12,14 @@ spec:
     metadata:
       labels:
         app: api-gateway
+      annotations:
+        kubernetes.io/change-cause: "Forzar actualizacion gateway v2"
+        redeploy-date: "2026-06-20-v2"
     spec:
       containers:
       - name: api-gateway
         image: 908560159565.dkr.ecr.us-east-1.amazonaws.com/api-gateway:latest
+        imagePullPolicy: Always
         ports:
         - containerPort: 8080
         env:

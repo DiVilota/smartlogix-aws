@@ -23,3 +23,5 @@ data:
   NEON_ENVIOS_URL: "jdbc:postgresql://ep-envios-db-pool.aws-region.neon.tech/smartlogix_envios?sslmode=require"
   NEON_ENVIOS_USER: "envios_user_neon"
   NEON_ENVIOS_PASSWORD: "envios_password_neon"
+  
+  CONFIG_VERSION: "v2"

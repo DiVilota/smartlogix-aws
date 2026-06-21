@@ -12,10 +12,14 @@ spec:
     metadata:
       labels:
         app: auth-service
+      annotations:
+        kubernetes.io/change-cause: "Forzar actualizacion auth v2"
+        redeploy-date: "2026-06-20-v2"
     spec:
       containers:
       - name: auth-service
         image: 908560159565.dkr.ecr.us-east-1.amazonaws.com/auth-service:latest
+        imagePullPolicy: Always
         ports:
         - containerPort: 8085
         envFrom:
@@ -50,10 +54,14 @@ spec:
     metadata:
       labels:
         app: inventario-service
+      annotations:
+        kubernetes.io/change-cause: "Forzar actualizacion inventario v2"
+        redeploy-date: "2026-06-20-v2"
     spec:
       containers:
       - name: inventario-service
         image: 908560159565.dkr.ecr.us-east-1.amazonaws.com/inventario-service:latest
+        imagePullPolicy: Always
         ports:
         - containerPort: 8081
         envFrom:
@@ -88,10 +96,14 @@ spec:
     metadata:
       labels:
         app: pedidos-service
+      annotations:
+        kubernetes.io/change-cause: "Forzar actualizacion pedidos v2"
+        redeploy-date: "2026-06-20-v2"
     spec:
       containers:
       - name: pedidos-service
         image: 908560159565.dkr.ecr.us-east-1.amazonaws.com/pedidos-service:latest
+        imagePullPolicy: Always
         ports:
         - containerPort: 8082
         env:
@@ -129,10 +141,14 @@ spec:
     metadata:
       labels:
         app: envios-service
+      annotations:
+        kubernetes.io/change-cause: "Forzar actualizacion envios v2"
+        redeploy-date: "2026-06-20-v2"
     spec:
       containers:
       - name: envios-service
         image: 908560159565.dkr.ecr.us-east-1.amazonaws.com/envios-service:latest
+        imagePullPolicy: Always
         ports:
         - containerPort: 8083
         envFrom:
@@ -167,10 +183,14 @@ spec:
     metadata:
       labels:
         app: bff-service
+      annotations:
+        kubernetes.io/change-cause: "Forzar actualizacion bff v2"
+        redeploy-date: "2026-06-20-v2"
     spec:
       containers:
       - name: bff-service
         image: 908560159565.dkr.ecr.us-east-1.amazonaws.com/bff-service:latest
+        imagePullPolicy: Always
         ports:
         - containerPort: 8084
         env:
