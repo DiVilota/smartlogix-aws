@@ -12,10 +12,14 @@ spec:
     metadata:
       labels:
         app: frontend-smartlogix
+      annotations:
+        kubernetes.io/change-cause: "Forzar despliegue de URL AWS v2"
+        redeploy-date: "2026-06-20-v2"
     spec:
       containers:
       - name: frontend-smartlogix
         image: 908560159565.dkr.ecr.us-east-1.amazonaws.com/frontend-smartlogix:latest
+        imagePullPolicy: Always 
         ports:
         - containerPort: 80 
 ---
