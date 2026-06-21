@@ -3,7 +3,7 @@ name: Deploy SmartLogix to AWS EKS
 on:
   push:
     branches:
-      - develop  # Se ejecuta automáticamente al hacer push a la rama develop
+      - main  # Se ejecuta automáticamente al hacer push a la rama develop
 
 jobs:
   deploy:
