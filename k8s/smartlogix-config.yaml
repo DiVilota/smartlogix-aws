@@ -8,20 +8,22 @@ data:
   JWT_EXPIRATION: "3600000"
   STOCK_ALERT_THRESHOLD: "10"
 
-  NEON_AUTH_URL: "jdbc:postgresql://ep-auth-db-pool.aws-region.neon.tech/smartlogix_auth?sslmode=require"
-  NEON_AUTH_USER: "auth_user_neon"
-  NEON_AUTH_PASSWORD: "auth_password_neon"
+  # Direcciones apuntando al servicio interno 'postgres-db'
+  NEON_AUTH_URL: "jdbc:postgresql://postgres-db:5432/smartlogix_local"
+  NEON_AUTH_USER: "db_user_local"
+  NEON_AUTH_PASSWORD: "db_password_local"
 
-  NEON_INVENTARIO_URL: "jdbc:postgresql://ep-inventario-db-pool.aws-region.neon.tech/smartlogix_inventario?sslmode=require"
-  NEON_INVENTARIO_USER: "inventario_user_neon"
-  NEON_INVENTARIO_PASSWORD: "inventario_password_neon"
+  NEON_INVENTARIO_URL: "jdbc:postgresql://postgres-db:5432/smartlogix_local"
+  NEON_INVENTARIO_USER: "db_user_local"
+  NEON_INVENTARIO_PASSWORD: "db_password_local"
 
-  NEON_PEDIDOS_URL: "jdbc:postgresql://ep-pedidos-db-pool.aws-region.neon.tech/smartlogix_pedidos?sslmode=require"
-  NEON_PEDIDOS_USER: "pedidos_user_neon"
-  NEON_PEDIDOS_PASSWORD: "pedidos_password_neon"
+  NEON_PEDIDOS_URL: "jdbc:postgresql://postgres-db:5432/smartlogix_local"
+  NEON_PEDIDOS_USER: "db_user_local"
+  NEON_PEDIDOS_PASSWORD: "db_password_local"
 
-  NEON_ENVIOS_URL: "jdbc:postgresql://ep-envios-db-pool.aws-region.neon.tech/smartlogix_envios?sslmode=require"
-  NEON_ENVIOS_USER: "envios_user_neon"
-  NEON_ENVIOS_PASSWORD: "envios_password_neon"
+  NEON_ENVIOS_URL: "jdbc:postgresql://postgres-db:5432/smartlogix_local"
+  NEON_ENVIOS_USER: "db_user_local"
+  NEON_ENVIOS_PASSWORD: "db_password_local"
   
-  CONFIG_VERSION: "v2"
+  # Forzamos la versión v5 para que Kubernetes aplique el cambio de inmediato
+  CONFIG_VERSION: "v5"
