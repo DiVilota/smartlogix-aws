@@ -16,7 +16,7 @@ export default function LoginContainer({ onLoginSuccess }) {
     setSuccess(null);
 
     const endpoint = isRegister ? '/auth/register' : '/auth/login';
-    const url = 'http://a0803d645b08e49bf8f94100fd5d5871-2145001747.us-east-1.elb.amazonaws.com:8080' + endpoint;
+    const url = 'http://a656ac224048247fea9c6268aeb2bd00-1393924712.us-east-1.elb.amazonaws.com:8080' + endpoint;
 
     try {
       const response = await fetch(url, {

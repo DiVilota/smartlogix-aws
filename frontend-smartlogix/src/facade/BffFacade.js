@@ -37,7 +37,7 @@ export function isTokenExpired() {
 }
 
 // URL ajustada al Balanceador de Carga de AWS (API Gateway)
-const API_GATEWAY_URL = 'http://a0803d645b08e49bf8f94100fd5d5871-2145001747.us-east-1.elb.amazonaws.com:8080';
+const API_GATEWAY_URL = 'http://a656ac224048247fea9c6268aeb2bd00-1393924712.us-east-1.elb.amazonaws.com:8080';
 
 async function fetchWithAuth(endpoint, options = {}) {
   const token = getToken();
