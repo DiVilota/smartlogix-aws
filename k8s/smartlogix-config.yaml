@@ -4,26 +4,12 @@ metadata:
   name: smartlogix-config
   namespace: smartlogix
 data:
-  JWT_SECRET: "TuClaveSecretaSuperSeguraParaFirmarLosTokensJWTSmartLogix2026"
   JWT_EXPIRATION: "3600000"
   STOCK_ALERT_THRESHOLD: "10"
 
-  # Direcciones apuntando al servicio interno 'postgres-db'
   NEON_AUTH_URL: "jdbc:postgresql://postgres-db:5432/smartlogix_local"
-  NEON_AUTH_USER: "db_user_local"
-  NEON_AUTH_PASSWORD: "db_password_local"
-
   NEON_INVENTARIO_URL: "jdbc:postgresql://postgres-db:5432/smartlogix_local"
-  NEON_INVENTARIO_USER: "db_user_local"
-  NEON_INVENTARIO_PASSWORD: "db_password_local"
-
   NEON_PEDIDOS_URL: "jdbc:postgresql://postgres-db:5432/smartlogix_local"
-  NEON_PEDIDOS_USER: "db_user_local"
-  NEON_PEDIDOS_PASSWORD: "db_password_local"
-
   NEON_ENVIOS_URL: "jdbc:postgresql://postgres-db:5432/smartlogix_local"
-  NEON_ENVIOS_USER: "db_user_local"
-  NEON_ENVIOS_PASSWORD: "db_password_local"
-  
-  # Forzamos la versión v5 para que Kubernetes aplique el cambio de inmediato
-  CONFIG_VERSION: "v5"
+
+  CONFIG_VERSION: "v1"

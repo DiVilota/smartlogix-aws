@@ -3,18 +3,16 @@ name: Deploy SmartLogix to AWS EKS
 on:
   push:
     branches:
-      - main  # Se ejecuta automáticamente al hacer push a la rama develop
+      - main
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
 
     steps:
-    # 1. Clonar el código fuente
     - name: Checkout Code
       uses: actions/checkout@v4
 
-    # 2. Configurar las credenciales dinámicas de AWS (Soporta AWS Academy / Session Token)
     - name: Configure AWS Credentials
       uses: aws-actions/configure-aws-credentials@v4
       with:
@@ -23,57 +21,101 @@ jobs:
         aws-session-token: ${{ secrets.AWS_SESSION_TOKEN }}
         aws-region: ${{ secrets.AWS_REGION }}
 
-    # 3. Autenticarse en Amazon ECR
+    - name: Get AWS Account ID
+      id: aws-account
+      run: echo "ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)" >> $GITHUB_OUTPUT
+
     - name: Login to Amazon ECR
       id: login-ecr
       uses: aws-actions/amazon-ecr-login@v2
 
-    # 4. Construir y subir las imágenes usando tu ID de cuenta dinámico
     - name: Build, Tag, and Push Images to Amazon ECR
       env:
         ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
       run: |
-        # Frontend
         docker build -t $ECR_REGISTRY/frontend-smartlogix:latest ./frontend-smartlogix
         docker push $ECR_REGISTRY/frontend-smartlogix:latest
-        
-        # API Gateway
+
         docker build -t $ECR_REGISTRY/api-gateway:latest ./api-gateway
         docker push $ECR_REGISTRY/api-gateway:latest
-        
-        # Auth Service
+
         docker build -t $ECR_REGISTRY/auth-service:latest ./auth-service
         docker push $ECR_REGISTRY/auth-service:latest
-        
-        # BFF Service
+
         docker build -t $ECR_REGISTRY/bff-service:latest ./bff-service
         docker push $ECR_REGISTRY/bff-service:latest
-        
-        # Inventario Service
+
         docker build -t $ECR_REGISTRY/inventario-service:latest ./inventario-service
         docker push $ECR_REGISTRY/inventario-service:latest
-        
-        # Pedidos Service
+
         docker build -t $ECR_REGISTRY/pedidos-service:latest ./pedidos-service
         docker push $ECR_REGISTRY/pedidos-service:latest
-        
-        # Envios Service
+
         docker build -t $ECR_REGISTRY/envios-service:latest ./envios-service
         docker push $ECR_REGISTRY/envios-service:latest
 
-    # 5. Conectarse al clúster usando tu secret 'EKS_CLUSTER' (eks-ev3)
     - name: Update Kubeconfig for EKS
       run: |
         aws eks update-kubeconfig --region ${{ secrets.AWS_REGION }} --name ${{ secrets.EKS_CLUSTER }}
 
-    # 6. Desplegar todo con un único comando en Kubernetes
-    - name: Deploy to Kubernetes
+    - name: Create Kubernetes Secrets from GitHub Secrets
       run: |
-        # Crear el namespace si no existe de manera segura
+        kubectl create secret generic smartlogix-secrets \
+          --from-literal=JWT_SECRET=${{ secrets.JWT_SECRET }} \
+          --from-literal=DB_USER=${{ secrets.DB_USER }} \
+          --from-literal=DB_PASSWORD=${{ secrets.DB_PASSWORD }} \
+          --from-literal=NEON_AUTH_USER=${{ secrets.DB_USER }} \
+          --from-literal=NEON_AUTH_PASSWORD=${{ secrets.DB_PASSWORD }} \
+          --from-literal=NEON_INVENTARIO_USER=${{ secrets.DB_USER }} \
+          --from-literal=NEON_INVENTARIO_PASSWORD=${{ secrets.DB_PASSWORD }} \
+          --from-literal=NEON_PEDIDOS_USER=${{ secrets.DB_USER }} \
+          --from-literal=NEON_PEDIDOS_PASSWORD=${{ secrets.DB_PASSWORD }} \
+          --from-literal=NEON_ENVIOS_USER=${{ secrets.DB_USER }} \
+          --from-literal=NEON_ENVIOS_PASSWORD=${{ secrets.DB_PASSWORD }} \
+          --namespace=smartlogix --dry-run=client -o yaml | kubectl apply -f -
+
+    - name: Deploy to Kubernetes
+      env:
+        AWS_ACCOUNT_ID: ${{ steps.aws-account.outputs.ACCOUNT_ID }}
+        AWS_REGION: ${{ secrets.AWS_REGION }}
+      run: |
         kubectl create namespace smartlogix --dry-run=client -o yaml | kubectl apply -f -
-        
-        # Aplicar tus 4 archivos en orden
-        kubectl apply -f k8s/smartlogix-config.yaml
-        kubectl apply -f k8s/backend-apps.yaml
-        kubectl apply -f k8s/api-gateway.yaml
-        kubectl apply -f k8s/frontend.yaml
+
+        mkdir -p /tmp/k8s
+        for file in k8s/*.yaml; do
+          envsubst < "$file" > "/tmp/k8s/$(basename "$file")"
+        done
+
+        kubectl apply -f /tmp/k8s/smartlogix-config.yaml
+        kubectl apply -f /tmp/k8s/postgres-db.yaml
+        kubectl apply -f /tmp/k8s/backend-apps.yaml
+        kubectl apply -f /tmp/k8s/api-gateway.yaml
+        kubectl apply -f /tmp/k8s/frontend.yaml
+        kubectl apply -f /tmp/k8s/hpa.yaml
+        kubectl apply -f /tmp/k8s/ingress.yaml
+
+    - name: Verify Deployment
+      run: |
+        echo "=== Namespaces ==="
+        kubectl get ns smartlogix
+        echo ""
+        echo "=== Deployments ==="
+        kubectl get deployments -n smartlogix
+        echo ""
+        echo "=== Services ==="
+        kubectl get svc -n smartlogix
+        echo ""
+        echo "=== HPA ==="
+        kubectl get hpa -n smartlogix
+        echo ""
+        echo "=== Pods ==="
+        kubectl get pods -n smartlogix
+        echo ""
+        echo "=== Ingress ==="
+        kubectl get ingress -n smartlogix
+
+    - name: Show Ingress URL
+      run: |
+        echo "Waiting for ALB to be provisioned (may take 2-3 minutes)..."
+        sleep 30
+        kubectl get ingress -n smartlogix -o jsonpath='{.items[0].status.loadBalancer.ingress[0].hostname}' && echo ""

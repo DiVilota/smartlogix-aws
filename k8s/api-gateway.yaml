@@ -4,7 +4,7 @@ metadata:
   name: api-gateway
   namespace: smartlogix
 spec:
-  replicas: 2 
+  replicas: 2
   selector:
     matchLabels:
       app: api-gateway
@@ -12,13 +12,10 @@ spec:
     metadata:
       labels:
         app: api-gateway
-      annotations:
-        kubernetes.io/change-cause: "Forzar actualizacion gateway v3"
-        redeploy-date: "2026-06-20-v3"
     spec:
       containers:
       - name: api-gateway
-        image: 908560159565.dkr.ecr.us-east-1.amazonaws.com/api-gateway:latest
+        image: 558195356447.dkr.ecr.us-east-1.amazonaws.com/api-gateway:latest
         imagePullPolicy: Always
         ports:
         - containerPort: 8080
@@ -36,6 +33,15 @@ spec:
         envFrom:
         - configMapRef:
             name: smartlogix-config
+        - secretRef:
+            name: smartlogix-secrets
+        resources:
+          requests:
+            cpu: "200m"
+            memory: "256Mi"
+          limits:
+            cpu: "500m"
+            memory: "512Mi"
 ---
 apiVersion: v1
 kind: Service
@@ -43,9 +49,9 @@ metadata:
   name: api-gateway
   namespace: smartlogix
 spec:
-  type: LoadBalancer 
+  type: ClusterIP
   ports:
-  - port: 8080       
-    targetPort: 8080 
+  - port: 8080
+    targetPort: 8080
   selector:
     app: api-gateway

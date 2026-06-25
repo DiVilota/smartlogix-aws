@@ -4,7 +4,7 @@ metadata:
   name: frontend-smartlogix
   namespace: smartlogix
 spec:
-  replicas: 2 
+  replicas: 2
   selector:
     matchLabels:
       app: frontend-smartlogix
@@ -12,16 +12,20 @@ spec:
     metadata:
       labels:
         app: frontend-smartlogix
-      annotations:
-        kubernetes.io/change-cause: "Forzar despliegue de URL AWS v2"
-        redeploy-date: "2026-06-20-v2"
     spec:
       containers:
       - name: frontend-smartlogix
-        image: 908560159565.dkr.ecr.us-east-1.amazonaws.com/frontend-smartlogix:latest
-        imagePullPolicy: Always 
+        image: 558195356447.dkr.ecr.us-east-1.amazonaws.com/frontend-smartlogix:latest
+        imagePullPolicy: Always
         ports:
-        - containerPort: 80 
+        - containerPort: 80
+        resources:
+          requests:
+            cpu: "100m"
+            memory: "128Mi"
+          limits:
+            cpu: "250m"
+            memory: "256Mi"
 ---
 apiVersion: v1
 kind: Service
@@ -29,9 +33,9 @@ metadata:
   name: frontend-smartlogix
   namespace: smartlogix
 spec:
-  type: LoadBalancer 
+  type: ClusterIP
   ports:
-  - port: 80          
-    targetPort: 80    
+  - port: 80
+    targetPort: 80
   selector:
     app: frontend-smartlogix

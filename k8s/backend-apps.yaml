@@ -12,19 +12,25 @@ spec:
     metadata:
       labels:
         app: auth-service
-      annotations:
-        kubernetes.io/change-cause: "Forzar actualizacion auth v3"
-        redeploy-date: "2026-06-20-v3"
     spec:
       containers:
       - name: auth-service
-        image: 908560159565.dkr.ecr.us-east-1.amazonaws.com/auth-service:latest
+        image: 558195356447.dkr.ecr.us-east-1.amazonaws.com/auth-service:latest
         imagePullPolicy: Always
         ports:
         - containerPort: 8085
         envFrom:
         - configMapRef:
             name: smartlogix-config
+        - secretRef:
+            name: smartlogix-secrets
+        resources:
+          requests:
+            cpu: "200m"
+            memory: "256Mi"
+          limits:
+            cpu: "500m"
+            memory: "512Mi"
 ---
 apiVersion: v1
 kind: Service
@@ -54,19 +60,25 @@ spec:
     metadata:
       labels:
         app: inventario-service
-      annotations:
-        kubernetes.io/change-cause: "Forzar actualizacion inventario v3"
-        redeploy-date: "2026-06-20-v3"
     spec:
       containers:
       - name: inventario-service
-        image: 908560159565.dkr.ecr.us-east-1.amazonaws.com/inventario-service:latest
+        image: 558195356447.dkr.ecr.us-east-1.amazonaws.com/inventario-service:latest
         imagePullPolicy: Always
         ports:
         - containerPort: 8081
         envFrom:
         - configMapRef:
             name: smartlogix-config
+        - secretRef:
+            name: smartlogix-secrets
+        resources:
+          requests:
+            cpu: "200m"
+            memory: "256Mi"
+          limits:
+            cpu: "500m"
+            memory: "512Mi"
 ---
 apiVersion: v1
 kind: Service
@@ -96,13 +108,10 @@ spec:
     metadata:
       labels:
         app: pedidos-service
-      annotations:
-        kubernetes.io/change-cause: "Forzar actualizacion pedidos v3"
-        redeploy-date: "2026-06-20-v3"
     spec:
       containers:
       - name: pedidos-service
-        image: 908560159565.dkr.ecr.us-east-1.amazonaws.com/pedidos-service:latest
+        image: 558195356447.dkr.ecr.us-east-1.amazonaws.com/pedidos-service:latest
         imagePullPolicy: Always
         ports:
         - containerPort: 8082
@@ -112,6 +121,15 @@ spec:
         envFrom:
         - configMapRef:
             name: smartlogix-config
+        - secretRef:
+            name: smartlogix-secrets
+        resources:
+          requests:
+            cpu: "200m"
+            memory: "256Mi"
+          limits:
+            cpu: "500m"
+            memory: "512Mi"
 ---
 apiVersion: v1
 kind: Service
@@ -141,19 +159,25 @@ spec:
     metadata:
       labels:
         app: envios-service
-      annotations:
-        kubernetes.io/change-cause: "Forzar actualizacion envios v3"
-        redeploy-date: "2026-06-20-v3"
     spec:
       containers:
       - name: envios-service
-        image: 908560159565.dkr.ecr.us-east-1.amazonaws.com/envios-service:latest
+        image: 558195356447.dkr.ecr.us-east-1.amazonaws.com/envios-service:latest
         imagePullPolicy: Always
         ports:
         - containerPort: 8083
         envFrom:
         - configMapRef:
             name: smartlogix-config
+        - secretRef:
+            name: smartlogix-secrets
+        resources:
+          requests:
+            cpu: "200m"
+            memory: "256Mi"
+          limits:
+            cpu: "500m"
+            memory: "512Mi"
 ---
 apiVersion: v1
 kind: Service
@@ -183,13 +207,10 @@ spec:
     metadata:
       labels:
         app: bff-service
-      annotations:
-        kubernetes.io/change-cause: "Forzar actualizacion bff v3"
-        redeploy-date: "2026-06-20-v3"
     spec:
       containers:
       - name: bff-service
-        image: 908560159565.dkr.ecr.us-east-1.amazonaws.com/bff-service:latest
+        image: 558195356447.dkr.ecr.us-east-1.amazonaws.com/bff-service:latest
         imagePullPolicy: Always
         ports:
         - containerPort: 8084
@@ -203,6 +224,15 @@ spec:
         envFrom:
         - configMapRef:
             name: smartlogix-config
+        - secretRef:
+            name: smartlogix-secrets
+        resources:
+          requests:
+            cpu: "200m"
+            memory: "256Mi"
+          limits:
+            cpu: "500m"
+            memory: "512Mi"
 ---
 apiVersion: v1
 kind: Service

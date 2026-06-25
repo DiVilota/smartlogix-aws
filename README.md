@@ -1,153 +1,152 @@
-# SmartLogix - Sistema de Gestión Logística
+# SmartLogix - Sistema de Gestion Logistica
 
-## Arquitectura
+## Arquitectura en AWS EKS
 
 ```
-┌─────────────────────────────────────────────────────┐
-│                   Frontend (React)                   │
-│                 localhost:5173                        │
-│  Login │ Dashboard │ Tienda │ Pedidos │ Inventario   │
-└──────────────────────┬──────────────────────────────┘
-                       │ HTTP + JWT
-                       ▼
-┌─────────────────────────────────────────────────────┐
-│               API Gateway (Spring Boot)              │
-│                 localhost:8080                       │
-│  Proxy Controller │ JWT Filter │ CORS Config         │
-└──┬─────────┬──────────┬──────────┬──────────┬───────┘
-   │         │          │          │          │
-   ▼         ▼          ▼          ▼          ▼
-┌──────┐ ┌──────┐ ┌──────────┐ ┌──────────┐ ┌──────┐
-│ Auth │ │  BFF │ │Inventario│ │ Pedidos  │ │Envios│
-│:8085 │ │:8084 │ │  :8081   │ │  :8082   │ │:8083 │
-└──┬───┘ └──┬───┘ └────┬─────┘ └────┬─────┘ └──┬───┘
-   │        │           │            │           │
-   │        │           └─────┬──────┘           │
-   │        │        Feign/RestTemplate         │
-   │        │                                    │
-   ▼        ▼           ▼            ▼           ▼
-┌─────────────────────────────────────────────────────┐
-│              Neon PostgreSQL (Cloud)                │
-│   usuarios │ productos │ stocks │ pedidos │ envios   │
-└─────────────────────────────────────────────────────┘
+                        ┌─────────────────────────────────┐
+                        │          Route 53 / DNS          │
+                        └──────────────┬──────────────────┘
+                                       │
+                                       ▼
+                        ┌─────────────────────────────────┐
+                        │   Application Load Balancer     │
+                        │   (ALB Ingress Controller)      │
+                        │   internet-facing               │
+                        └──────────────┬──────────────────┘
+                                       │
+              ┌────────────────────────┼────────────────────────┐
+              │                        │                        │
+              ▼                        ▼                        ▼
+    ┌──────────────────┐   ┌──────────────────┐   ┌──────────────────┐
+    │   Frontend :80   │   │ API Gateway :8080 │   │ API Gateway :8080 │
+    │   (React)        │   │ (Spring Cloud)    │   │ (Spring Cloud)    │
+    │   replica: 1     │   │ replica: 2..6     │   │ replica: 2..6     │
+    └──────────────────┘   └────────┬─────────┘   └────────┬─────────┘
+                                    │                       │
+              ┌──────────┬──────────┼──────────┬───────────┤
+              ▼          ▼          ▼          ▼           ▼
+    ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌──────────┐
+    │  Auth    │ │   BFF    │ │Inventario│ │ Pedidos  │ │  Envios  │
+    │  :8085   │ │  :8084   │ │  :8081   │ │  :8082   │ │  :8083   │
+    │reps:2..6│ │reps:2..6│ │reps:2..6│ │reps:2..6│ │reps:2..6│
+    └────┬─────┘ └────┬─────┘ └────┬─────┘ └────┬─────┘ └────┬─────┘
+         │            │            │            │            │
+         └────────────┼────────────┴────────────┼────────────┘
+                      │                         │
+                      ▼                         ▼
+            ┌──────────────────────────────────────────────┐
+            │          PostgreSQL (StatefulSet)            │
+            │          postgres-db:5432                    │
+            │          PVC 10Gi (gp2)                      │
+            │          DB: smartlogix_local                │
+            └──────────────────────────────────────────────┘
+```
+
+## Infraestructura AWS (Terraform)
+
+### Recursos creados
+
+| Recurso | Descripcion |
+|---|---|
+| **VPC** | CIDR `10.0.0.0/16`, 2 subnets publicas + 2 privadas en `us-east-1a` y `us-east-1b` |
+| **NAT Gateway** | 1 NAT Gateway en subnet publica para acceso saliente de las subnets privadas |
+| **EKS Cluster** | Kubernetes 1.30 con control plane administrado, endpoint publico |
+| **Node Group** | `t3.medium` SPOT, 2-5 nodos, en subnets privadas |
+| **ECR** | 7 repositorios con lifecycle policy (keep last 5 images) |
+| **IAM** | Roles para EKS cluster, node group, LB Controller, y GitHub Actions |
+| **ALB Controller** | AWS Load Balancer Controller via Helm (internet-facing) |
+| **Metrics Server** | Para HPA (Horizontal Pod Autoscaler) |
+
+### Comandos Terraform
+
+```bash
+cd terraform
+
+# Inicializar
+terraform init
+
+# Planificar (ver que se creara sin aplicarlo)
+terraform plan
+
+# Crear toda la infraestructura
+terraform apply -auto-approve
+
+# Ver outputs (Account ID, ECR URLs, etc.)
+terraform output
+
+# Obtener comando para configurar kubectl
+terraform output configure_kubectl
 ```
 
 ## Microservicios
 
-| Servicio | Puerto | Descripción | BD |
+| Servicio | Puerto | Descripcion | Replicas (HPA) |
 |---|---|---|---|
-| **api-gateway** | 8080 | Proxy + JWT + CORS | No |
-| **auth-service** | 8085 | Login/Register (JPA) | Neon (usuarios) |
-| **bff-service** | 8084 | KPIs y Dashboard | No |
-| **inventario-service** | 8081 | Productos y Stocks | Neon (productos, stocks) |
-| **pedidos-service** | 8082 | Pedidos con Saga Pattern | Neon (pedidos) |
-| **envios-service** | 8083 | Envíos con tracking | Neon (envios) |
+| **api-gateway** | 8080 | Proxy + JWT + CORS + ALB Ingress | 2..6 (CPU 70%) |
+| **auth-service** | 8085 | Login/Register (JPA) | 2..6 (CPU 70%) |
+| **bff-service** | 8084 | KPIs y Dashboard | 2..6 (CPU 70%) |
+| **inventario-service** | 8081 | Productos y Stocks | 2..6 (CPU 70%) |
+| **pedidos-service** | 8082 | Pedidos con Saga Pattern | 2..6 (CPU 70%) |
+| **envios-service** | 8083 | Envios con tracking | 2..6 (CPU 70%) |
+| **frontend-smartlogix** | 80 | React + Vite + Tailwind | 2..6 (CPU 70%) |
 
-## Stack Tecnológico
+## Stack Tecnologico
 
 ### Backend
-- **Java 17** / **Spring Boot 4.0.4** / **Spring Framework 7.0.6**
-- **Spring MVC** (Servlet)
-- **Spring Data JPA** + Hibernate
-- **PostgreSQL** (Neon Cloud)
-- **JSON Web Token** (jjwt 0.11.5)
-- **OpenAPI / Swagger** (springdoc 2.5.0)
-- **Docker** + Docker Compose
+- Java 17 / Spring Boot 4.0.4
+- Spring MVC (Servlet), Spring Data JPA + Hibernate
+- PostgreSQL 15 (dentro del cluster EKS)
+- JWT (jjwt 0.11.5), OpenAPI / Swagger (springdoc 2.5.0)
 
 ### Frontend
-- **React 19.2.5** / **Vite 8.0.9**
-- **Tailwind CSS 4.2.4**
-- **Vitest** + React Testing Library
-- **Context API** (CartContext)
-- **Role-based UI** (Admin / Cliente)
+- React 19.2.5 / Vite 8.0.9 / Tailwind CSS 4.2.4
+- Vitest + React Testing Library, Context API
 
-## Patrones de Diseño
+### Infraestructura
+- AWS EKS 1.30 + Terraform + Helm
+- Application Load Balancer (ALB Ingress Controller)
+- Horizontal Pod Autoscaler (HPA)
+- GitHub Actions para CI/CD
 
-| Patrón | Ubicación | Descripción |
-|---|---|---|
-| **API Gateway** | `api-gateway` | Punto único de entrada con proxy |
-| **BFF (Backend for Frontend)** | `bff-service` | Agrega datos de múltiples servicios |
-| **Saga Pattern** | `pedidos-service` | Orquestación con compensación |
-| **Feign/RestTemplate** | `bff-service`, `pedidos-service` | Comunicación entre servicios |
-| **Global Exception Handler** | Todos los servicios | Manejo centralizado de errores |
-
-## Estados del Saga (Pedidos)
+## Pipeline CI/CD
 
 ```
-Nuevo → PROCESADO ──→ [Completar] → COMPLETADO
-           │
-           └────→ [Cancelar] → CANCELLED (restaura stock)
+Git Push (main)
+       │
+       ▼
+┌──────────────────────────────────────┐
+│ 1. AWS Credentials (OIDC / Secrets) │
+│ 2. Docker Build (7 imagenes)        │
+│ 3. Push to Amazon ECR               │
+│ 4. Create K8s Secrets (from GH)     │
+│ 5. kubectl apply (7 manifests)      │
+│ 6. Verify + Show Ingress URL        │
+└──────────────────────────────────────┘
 ```
 
-## Flujo de Envíos
+### GitHub Secrets requeridos
 
-```
-PREPARACION → EN_TRANSITO → ENTREGADO
-```
-
-## Roles de Usuario
-
-| Rol | Menú | Acceso |
-|---|---|---|
-| **ROLE_ADMIN** | Dashboard, Inventario, Pedidos, Envíos | Gestión completa |
-| **ROLE_CLIENTE** | Tienda, Mis Pedidos | Compras propias |
-
-## API Endpoints
-
-### Auth Service (`/auth`)
-| Método | Ruta | Auth | Descripción |
-|---|---|---|---|
-| POST | `/auth/login` | No | Login con JWT |
-| POST | `/auth/register` | No | Registrar usuario |
-
-### Inventario Service (`/api`)
-| Método | Ruta | Auth | Descripción |
-|---|---|---|---|
-| GET | `/api/productos` | JWT | Listar productos |
-| POST | `/api/productos` | JWT | Crear producto |
-| GET | `/api/stocks` | JWT | Listar stocks |
-| POST | `/api/stocks/entrada` | JWT | Agregar stock |
-| POST | `/api/stocks/salida` | JWT | Reducir stock |
-
-### Pedidos Service (`/api`)
-| Método | Ruta | Auth | Descripción |
-|---|---|---|---|
-| GET | `/api/pedidos` | JWT | Listar pedidos |
-| POST | `/api/pedidos` | JWT | Crear pedido (Saga) |
-| GET | `/api/pedidos/{id}` | JWT | Detalle pedido |
-| PUT | `/api/pedidos/{id}/completar` | JWT | Completar saga |
-| PUT | `/api/pedidos/{id}/compensar` | JWT | Cancelar (restaura stock) |
-
-### Envíos Service (`/api`)
-| Método | Ruta | Auth | Descripción |
-|---|---|---|---|
-| POST | `/api/envios/pedido/{id}` | JWT | Crear envío |
-| GET | `/api/envios/pedido/{id}` | JWT | Consultar envío |
-| PUT | `/api/envios/{id}/estado` | JWT | Actualizar estado |
-
-### BFF Service (`/api`)
-| Método | Ruta | Auth | Descripción |
-|---|---|---|---|
-| GET | `/api/bff/kpis` | JWT | KPIs consolidados |
-| GET | `/api/bff/dashboard` | JWT | Dashboard completo |
-
-## Swagger UI
-
-| Servicio | URL |
+| Secret | Descripcion |
 |---|---|
-| bff-service | http://localhost:8084/swagger-ui.html |
-| inventario-service | http://localhost:8081/swagger-ui.html |
-| pedidos-service | http://localhost:8082/swagger-ui.html |
-| envios-service | http://localhost:8083/swagger-ui.html |
+| `AWS_ACCESS_KEY_ID` | AWS Academy / Learner Lab access key |
+| `AWS_SECRET_ACCESS_KEY` | AWS Academy secret key |
+| `AWS_SESSION_TOKEN` | AWS Academy session token |
+| `AWS_REGION` | `us-east-1` |
+| `EKS_CLUSTER` | Nombre del cluster (`smartlogix-cluster`) |
+| `JWT_SECRET` | Clave secreta para firma de tokens JWT |
+| `DB_USER` | Usuario PostgreSQL |
+| `DB_PASSWORD` | Password PostgreSQL |
 
-## Ejecución
+## Ejecucion Local
 
 ### Docker Compose
+
 ```bash
 docker compose up --build -d
 ```
 
 ### Frontend
+
 ```bash
 cd frontend-smartlogix
 npm install
@@ -155,6 +154,7 @@ npm run dev
 ```
 
 ### Tests
+
 ```bash
 # Backend (por servicio)
 cd <service> && ./mvnw test
@@ -163,37 +163,111 @@ cd <service> && ./mvnw test
 cd frontend-smartlogix && npm test
 ```
 
-### Credenciales por defecto
+## Despliegue en AWS (flujo completo)
+
+```bash
+# 1. Clonar e inicializar
+git clone <repo-url> && cd smartlogix-aws
+
+# 2. Crear infraestructura con Terraform
+cd terraform
+terraform init
+terraform apply -auto-approve
+
+# 3. Configurar kubectl
+aws eks update-kubeconfig --region us-east-1 --name smartlogix-cluster
+
+# 4. Desplegar aplicacion
+kubectl apply -f k8s/
+
+# 5. Obtener URL publica
+kubectl get ingress -n smartlogix
+
+# 6. Configurar GitHub Secrets (ver lista arriba)
+
+# 7. Push a main para activar CI/CD automatico
+git push origin main
+```
+
+## Patrones de Diseno
+
+| Patron | Ubicacion | Descripcion |
+|---|---|---|
+| **API Gateway** | `api-gateway` | Punto unico de entrada con proxy |
+| **BFF** | `bff-service` | Agrega datos de multiples servicios |
+| **Saga Pattern** | `pedidos-service` | Orquestacion con compensacion |
+| **Feign/RestTemplate** | `bff-service`, `pedidos-service` | Comunicacion entre servicios |
+| **Global Exception Handler** | Todos los servicios | Manejo centralizado de errores |
+
+## API Endpoints
+
+### Auth Service (`/auth`)
+| Metodo | Ruta | Auth | Descripcion |
+|---|---|---|---|
+| POST | `/auth/login` | No | Login con JWT |
+| POST | `/auth/register` | No | Registrar usuario |
+
+### Inventario Service (`/api`)
+| Metodo | Ruta | Auth | Descripcion |
+|---|---|---|---|
+| GET | `/api/productos` | JWT | Listar productos |
+| POST | `/api/productos` | JWT | Crear producto |
+| GET | `/api/stocks` | JWT | Listar stocks |
+| POST | `/api/stocks/entrada` | JWT | Agregar stock |
+| POST | `/api/stocks/salida` | JWT | Reducir stock |
+
+### Pedidos Service (`/api`)
+| Metodo | Ruta | Auth | Descripcion |
+|---|---|---|---|
+| GET | `/api/pedidos` | JWT | Listar pedidos |
+| POST | `/api/pedidos` | JWT | Crear pedido (Saga) |
+| GET | `/api/pedidos/{id}` | JWT | Detalle pedido |
+| PUT | `/api/pedidos/{id}/completar` | JWT | Completar saga |
+| PUT | `/api/pedidos/{id}/compensar` | JWT | Cancelar (restaura stock) |
+
+### Envios Service (`/api`)
+| Metodo | Ruta | Auth | Descripcion |
+|---|---|---|---|
+| POST | `/api/envios/pedido/{id}` | JWT | Crear envio |
+| GET | `/api/envios/pedido/{id}` | JWT | Consultar envio |
+| PUT | `/api/envios/{id}/estado` | JWT | Actualizar estado |
+
+### BFF Service (`/api`)
+| Metodo | Ruta | Auth | Descripcion |
+|---|---|---|---|
+| GET | `/api/bff/kpis` | JWT | KPIs consolidados |
+| GET | `/api/bff/dashboard` | JWT | Dashboard completo |
+
+## Swagger UI
+
+| Servicio | URL |
+|---|---|
+| auth-service | http://localhost:8085/swagger-ui.html |
+| bff-service | http://localhost:8084/swagger-ui.html |
+| inventario-service | http://localhost:8081/swagger-ui.html |
+| pedidos-service | http://localhost:8082/swagger-ui.html |
+| envios-service | http://localhost:8083/swagger-ui.html |
+
+## Estados del Saga (Pedidos)
+
+```
+Nuevo -> PROCESADO --> [Completar] -> COMPLETADO
+           |
+           └--> [Cancelar] -> CANCELLED (restaura stock)
+```
+
+## Flujo de Envios
+
+```
+PREPARACION -> EN_TRANSITO -> ENTREGADO
+```
+
+## Roles de Usuario
 
 | Usuario | Password | Rol |
 |---|---|---|
 | diego | admin123 | ROLE_ADMIN |
 | cliente | 1234 | ROLE_CLIENTE |
-
-## Variables de Entorno (`.env`)
-
-```env
-JWT_SECRET=SmartLogixSecretKeyUltraSegura2026ParaDesarrolloLocal
-JWT_EXPIRATION=3600000
-
-NEON_INVENTARIO_URL=jdbc:postgresql://host/db
-NEON_INVENTARIO_USER=user
-NEON_INVENTARIO_PASSWORD=pass
-
-NEON_PEDIDOS_URL=jdbc:postgresql://host/db
-NEON_PEDIDOS_USER=user
-NEON_PEDIDOS_PASSWORD=pass
-
-NEON_ENVIOS_URL=jdbc:postgresql://host/db
-NEON_ENVIOS_USER=user
-NEON_ENVIOS_PASSWORD=pass
-
-NEON_AUTH_URL=jdbc:postgresql://host/db
-NEON_AUTH_USER=user
-NEON_AUTH_PASSWORD=pass
-
-STOCK_ALERT_THRESHOLD=10
-```
 
 ## Cobertura de Tests
 
@@ -206,3 +280,20 @@ STOCK_ALERT_THRESHOLD=10
 | envios-service | 8 (6 service + 2 integration) |
 | **Frontend (Vitest)** | **40** |
 | **Total** | **80** |
+
+## Arquitectura de Autoscaling
+
+```
+HPA (Horizontal Pod Autoscaler) - 7 servicios
+├── api-gateway-hpa        CPU 70%   2..6
+├── auth-service-hpa       CPU 70%   2..6
+├── bff-service-hpa        CPU 70%   2..6
+├── inventario-service-hpa CPU 70%   2..6
+├── pedidos-service-hpa    CPU 70%   2..6
+├── envios-service-hpa     CPU 70%   2..6
+└── frontend-hpa           CPU 70%   2..6
+
+Cluster Autoscaler (Node Group)
+├── Min: 2  |  Max: 5  |  Instance: t3.medium SPOT
+└── Metricas: CPU + Memoria del nodo
+```

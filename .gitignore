@@ -20,6 +20,13 @@ target/
 .classpath
 .project
 
+# --- Terraform ---
+.terraform/
+*.tfstate
+*.tfstate.*
+*.tfplan
+.terraform.lock.hcl
+
 # --- Sistema y Docker ---
 .DS_Store
 Thumbs.db
